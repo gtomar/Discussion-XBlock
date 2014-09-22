@@ -157,13 +157,22 @@
         anonymous_to_peers = false || this.$("input.discussion-anonymous-to-peers").is(":checked");
         follow = false || this.$("input.discussion-follow").is(":checked");
         url = DiscussionUtil.urlFor('create_thread', this.topicId);
-        return DiscussionUtil.safeAjax({
+        
+       	////////////////////////////////////////////////////////
+       	/////// Code changes for help button starts here ///////
+       	////////////////////////////////////////////////////////
+	
+        var threadId; // thread ID is required for later reference of the post
+                      // by the candiadte to whom this post will be recommended
+        
+	//Inserting post into forum
+        var safeAjaxCall = DiscussionUtil.safeAjax({
           $elem: $(event.target),
           $loading: event ? $(event.target) : void 0,
           url: url,
           type: "POST",
           dataType: 'json',
-          async: true,
+          async: false,
           data: {
             title: title,
             body: body,
@@ -177,6 +186,8 @@
             var thread;
             thread = new Thread(response['content']);
             DiscussionUtil.clearFormErrors(_this.$(".new-post-form-errors"));
+            //Get thread ID
+            threadId = thread.id;
             _this.$el.hide();
             _this.$(".new-post-title").val("").attr("prev-text", "");
             _this.$(".new-post-body textarea").val("").attr("prev-text", "");
@@ -184,6 +195,37 @@
             return _this.collection.add(thread);
           }
         });
+        
+        // Question recommendation system server URL
+	var helpBackEndURL = "http://erebor.lti.cs.cmu.edu:2001/";
+        
+        // Make an Ajax call to the question recommendation system server when a new post is created via help button
+        $.ajax({
+            type: "POST",
+            contentType: "application/json; charset=utf-8",
+            url: helpBackEndURL,
+            data: { "title": title, "body": body,"threadId": threadId, "url": url},
+            async: false,
+            dataType: "jsonp",
+            jsonp: "callback",
+            jsonpCallback:"callback",
+            // Callback function which will pop up candidates suggested by question recommendation system
+            success: function (data) {
+                var htmlContent = data; // It contains information about candidates 
+                                        // suggested by question recommendation system 
+                
+                //Open window which will allow to choose among candidates suggested by question recommendation system
+                var opened_window = window.open("", "mywindow","menubar=1,resizable=1,width=1000,height=800");
+                opened_window.document.write(htmlContent);
+            }
+        });
+        
+        // Return the first Ajax call which inserted the new post into forum
+        return safeAjaxCall;
+
+        /////////////////////////////////////////////////////////////////
+        ////////////// Code changes for help button ends here ///////////
+        ////////////////////////////////////////////////////////////////
       };
 
       NewPostView.prototype.setActiveItem = function(event) {
